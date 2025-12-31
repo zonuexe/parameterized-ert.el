@@ -34,10 +34,27 @@
            (parameterized-ert--build-label-format '(a b)))))
 
 (ert-deftest test-parameterized-ert-macro ()
-  (should (equal
-           '(ert-deftest test-add ()
-              )
-           (parameterized-ert--deftest-1 'test-add '(expected a b) '("" '(should (eq expected (+ a b))))))))
+  (let ((form (macroexpand
+               '(parameterized-ert-deftest test-add (expected a b)
+                  "This is a test for addition."
+                  (should (eq expected (+ a b)))))))
+    (cond*
+     ((match* (cons 'progn rest) form))
+     ((match* (list setf-form deftest) rest))
+     ((pcase* `(ert-deftest ,test-name () ,docstring . ,body) deftest)
+      (should (equal
+               '(setf (alist-get 'test-add parameterized-ert--tests)
+                      (list :args '(expected a b)
+                            :label ":expected %S :a %S :b %S"))
+               setf-form))
+      (should (eq 'test-add test-name))
+      (should (string= "This is a test for addition." docstring))
+      (should (equal
+               '((cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
+                          do (progn (should (eq expected (+ a b))))))
+               body)))
+     (t
+      (ert-fail (format "Unexpected macro expansion: %S" form))))))
 
 (provide 'parameterized-ert-test)
 ;;; parameterized-ert-test.el ends here

@@ -36,6 +36,24 @@
 
 (defvar parameterized-ert--parameters '())
 
+(defun parameterized-ert--split-docstring-keys-body (docstring-keys-and-body)
+  "Split DOCSTRING-KEYS-AND-BODY into docstring, keyword list, and body.
+Return a list of the form (DOCSTRING KEYS BODY), where DOCSTRING can be nil,
+KEYS is a flat keyword/value list, and BODY is the remaining forms."
+  (let ((rest docstring-keys-and-body)
+        docstring
+        keys)
+    (when (stringp (car rest))
+      (setq docstring (car rest))
+      (setq rest (cdr rest)))
+    (while (keywordp (car rest))
+      (let ((key (car rest))
+            (value (cadr rest)))
+        (setq rest (cddr rest))
+        (push key keys)
+        (push value keys)))
+    (list docstring (nreverse keys) rest)))
+
 (defun parameterized-ert--build-label-format (arguments)
   "Build a default label format string from ARGUMENTS.
 Each argument name becomes a \":name %S\" segment."
@@ -71,7 +89,9 @@ argument list registered by `parameterized-ert-deftest'."
                         ((error "Unexpected parameter: %S" param)))
                   (unless label
                     (setq label (apply #'format label-format param-list)))
-                  (setf (alist-get label (alist-get name parameterized-ert--parameters)) param-list)))))
+                  (let ((current (alist-get name parameterized-ert--parameters)))
+                    (setf (alist-get label current) param-list)
+                    (setf (alist-get name parameterized-ert--parameters) current))))))
 
 (defun parameterized-ert-get-parameters (name)
   "Return the parameter list for NAME as (LABEL . VALUES) entries."
@@ -88,8 +108,30 @@ optional :label keyword to override the default label format."
 			   [&rest keywordp sexp] def-body))
            (doc-string 3)
            (indent 2))
-  (parameterized-ert--deftest-1 name args docstring-keys-and-body))
-
+  (when (memq 'label args)
+    (error "parameterized-ert-deftest: `label` is reserved for the generated label"))
+  (let* ((split (parameterized-ert--split-docstring-keys-body docstring-keys-and-body))
+         (docstring (nth 0 split))
+         (keys (nth 1 split))
+         (body (nth 2 split))
+         (label-format nil)
+         (ert-keys '()))
+    (while keys
+      (let ((key (pop keys))
+            (value (pop keys)))
+        (if (eq key :label)
+            (setq label-format value)
+          (setq ert-keys (append ert-keys (list key value))))))
+    (unless label-format
+      (setq label-format (parameterized-ert--build-label-format args)))
+    `(progn
+       (setf (alist-get ',name parameterized-ert--tests)
+             (list :args ',args :label ,label-format))
+       (ert-deftest ,name ()
+         ,@(when docstring (list docstring))
+         ,@ert-keys
+         (cl-loop for (label ,@args) in (parameterized-ert-get-parameters ',name)
+                  do (progn ,@body))))))
 
 (provide 'parameterized-ert)
 ;;; parameterized-ert.el ends here

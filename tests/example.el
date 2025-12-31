@@ -42,12 +42,16 @@
   (should (eq expected (+ a b))))
 
 ;; Equivalent expanded ERT test.
-(ert-deftest test-add ()
-  (cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
-           do (should (equal (list label expected)
-                             (list label (+ a b))))))
+;; (ert-deftest test-add ()
+;;   (cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
+;;            do (should (equal (list label expected)
+;;                              (list label (+ a b))))))
 
 ;; Provide parameters using keyword/value pairs.
 (parameterized-ert-provide 'test-add '((:expected 2 :a 1 :b 1)))
+
+;; wrong data
+;; (parameterized-ert-provide 'test-add '((:expected 4 :a 1 :b 1)))
+
 
 ;;; example.el ends here
