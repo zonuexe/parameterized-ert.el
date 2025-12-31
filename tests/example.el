@@ -46,6 +46,30 @@
                    (iter-lambda () (iter-yield (list :expected 10 :a 4 :b 6))))
   (should (eq expected (+ a b))))
 
+(parameterized-ert-deftest test-plus1 (expected input)
+  ""
+  :providers (list (parameterized-ert-xxx
+                    :expected (number-sequence 1 6)
+                    :input (number-sequence 0 5)))
+  (should (eq expected (1+ input))))
+
+(parameterized-ert-deftest test-cons-multi (expected v1 v2 v3)
+  ""
+  :providers (list (parameterized-ert-map-product
+                    (lambda (v1 v2 v3) (list v1 v2 v3))
+                    :v1 '(a b)
+                    :v2 '(x y)
+                    :v3 '(1 2)))
+  (should (eq expected (cons v1 (cons v2 (cons v2 nil))))))
+
+(parameterized-ert-deftest test-twice (expected input)
+  ""
+  :providers (list (parameterized-ert-map-derive
+                    :expected (lambda (params) (let ((input (plist-get params :input)))
+                                                 (+ input input)))
+                    :input (number-sequence 0 5)))
+  (should (eq expected (* 2 input))))
+
 (parameterized-ert-deftest test-add-property (a b)
   ""
   :providers (list (parameterized-ert-property (:a 'integer :b 'integer) &times 100))

@@ -114,6 +114,17 @@
              (lambda (v1 v2) (list :v1 v1 :v2 v2))
              :v1 '(a b) :v2 '(x y))))))
 
+(ert-deftest test-parameterized-ert-map-derive ()
+  (should (equal
+           '((:expected 0 :input 0)
+             (:expected 2 :input 1)
+             (:expected 4 :input 2))
+           (funcall
+            (parameterized-ert-map-derive
+             :expected (lambda (params) (let ((input (plist-get params :input)))
+                                          (+ input input)))
+             :input '(0 1 2))))))
+
 (ert-deftest test-parameterized-ert-macro-parameters-and-providers ()
   (let ((parameterized-ert--tests '())
         (parameterized-ert--parameters '()))

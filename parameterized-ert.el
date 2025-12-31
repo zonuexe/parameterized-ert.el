@@ -69,6 +69,45 @@ The provider calls FN with positional arguments in the plist order."
       (mapcar (lambda (values)
                 (apply fn values))
               (apply #'parameterized-ert--product lists)))))
+
+(defun parameterized-ert-map-derive (&rest keyed-values)
+  "Return a provider that derives keys from earlier values.
+KEYED-VALUES is a plist of keyword/value pairs.  Values are lists or functions.
+Function values receive a plist of the already-derived pairs."
+  (let ((pairs (seq-partition keyed-values 2)))
+    (lambda ()
+      (let ((base-pairs '())
+            (derived-pairs '())
+            (keys (mapcar #'car pairs)))
+        (dolist (pair pairs)
+          (pcase-let ((`(,key ,value) pair))
+            (unless (keywordp key)
+              (error "Expected keyword key, got: %S" key))
+            (if (functionp value)
+                (push pair derived-pairs)
+              (push pair base-pairs))))
+        (setq base-pairs (nreverse base-pairs))
+        (setq derived-pairs (nreverse derived-pairs))
+        (let ((results (list nil)))
+          (dolist (pair base-pairs)
+            (pcase-let ((`(,key ,values) pair))
+              (cl-check-type values list)
+              (setq results
+                    (cl-mapcan (lambda (partial)
+                                 (mapcar (lambda (item)
+                                           (plist-put (copy-sequence partial) key item))
+                                         values))
+                               results))))
+          (dolist (pair derived-pairs)
+            (pcase-let ((`(,key ,fn) pair))
+              (setq results
+                    (mapcar (lambda (partial)
+                              (plist-put partial key (funcall fn partial)))
+                            results))))
+          (mapcar (lambda (plist)
+                    (cl-loop for key in keys
+                             append (list key (plist-get plist key))))
+                  results))))))
 
 ;;; Internal functions:
 (defun parameterized-ert--normalize-entry (entry)
