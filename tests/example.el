@@ -40,6 +40,10 @@
 ;; Minimal parameterized test definition.
 (parameterized-ert-deftest test-add (expected a b)
   ""
+  :parameters `((:expected -2 :a 1 :b -3)
+                (:expected 2 :a ,(abs -1) :b ,(abs -1)))
+  :providers (list #'example-add-provider #'example-add-provider-2
+                   (iter-lambda () (iter-yield (list :expected 10 :a 4 :b 6))))
   (should (eq expected (+ a b))))
 
 ;; Equivalent expanded ERT test.

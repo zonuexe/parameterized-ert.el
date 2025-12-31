@@ -92,5 +92,31 @@
     (should (equal '((":a 3 :b 4" 3 4))
                    (parameterized-ert-get-parameters 'gen-test)))))
 
+(ert-deftest test-parameterized-ert-macro-parameters-and-providers ()
+  (let ((parameterized-ert--tests '())
+        (parameterized-ert--parameters '()))
+    (let ((form (macroexpand
+                 '(parameterized-ert-deftest test-add (expected a b)
+                    ""
+                    :parameters '((:expected 2 :a 1 :b 1))
+                    :providers (list (lambda () '((:expected 3 :a 1 :b 2))))
+                    (should (eq expected (+ a b)))))))
+      (should (equal
+               '(progn
+                  (setf (alist-get 'test-add parameterized-ert--tests)
+                        (list :args '(expected a b)
+                              :label ":expected %S :a %S :b %S"))
+                  (parameterized-ert-add-parameters
+                   'test-add
+                   '((:expected 2 :a 1 :b 1)))
+                  (parameterized-ert-add-providers
+                   'test-add
+                   (list (lambda () '((:expected 3 :a 1 :b 2)))))
+                  (ert-deftest test-add ()
+                    ""
+                    (cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
+                             do (progn (should (eq expected (+ a b)))))))
+               form)))))
+
 (provide 'parameterized-ert-test)
 ;;; parameterized-ert-test.el ends here

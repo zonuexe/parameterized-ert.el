@@ -185,7 +185,8 @@ Provider functions may return lists or generator objects."
 (cl-defmacro parameterized-ert-deftest (name args &body docstring-keys-and-body)
   "Define a parameterized ERT test NAME with ARGS.
 DOCSTRING-KEYS-AND-BODY accepts the same format as `ert-deftest', with an
-optional :label keyword to override the default label format."
+optional :label keyword to override the default label format.
+It also supports :parameters and :providers to register inputs."
   (declare (debug (&define [&name "test@p11d" symbolp]
 			   sexp [&optional stringp]
 			   [&rest keywordp sexp] def-body))
@@ -198,18 +199,30 @@ optional :label keyword to override the default label format."
          (keys (nth 1 split))
          (body (nth 2 split))
          (label-format nil)
+         (parameters nil)
+         (providers nil)
          (ert-keys '()))
     (while keys
       (let ((key (pop keys))
             (value (pop keys)))
         (if (eq key :label)
             (setq label-format value)
-          (setq ert-keys (append ert-keys (list key value))))))
+          (cond
+           ((eq key :parameters)
+            (setq parameters value))
+           ((eq key :providers)
+            (setq providers value))
+           (t
+            (setq ert-keys (append ert-keys (list key value))))))))
     (unless label-format
       (setq label-format (parameterized-ert--build-label-format args)))
     `(progn
        (setf (alist-get ',name parameterized-ert--tests)
              (list :args ',args :label ,label-format))
+       ,@(when parameters
+           `((parameterized-ert-add-parameters ',name ,parameters)))
+       ,@(when providers
+           `((parameterized-ert-add-providers ',name ,providers)))
        (ert-deftest ,name ()
          ,@(when docstring (list docstring))
          ,@ert-keys
