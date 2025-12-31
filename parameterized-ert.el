@@ -37,6 +37,21 @@
 
 (defvar parameterized-ert--parameters '())
 
+
+;; Utility functions:
+(defun parameterized-ert--product (&rest lists)
+  "Return the Cartesian product of LISTS as a list of lists."
+  (named-let loop-lists ((ls lists))
+    (if (null ls)
+        '(nil)
+      (let ((first-list (car ls))
+            (rest-product (loop-lists (cdr ls))))
+        (cl-mapcan (lambda (item)
+                     (mapcar (lambda (sub-p) (cons item sub-p))
+                             rest-product))
+                   first-list)))))
+
+;;; Internal functions:
 (defun parameterized-ert--normalize-entry (entry)
   "Normalize ENTRY into a plist with :params and :providers."
   (if (and (listp entry) (plist-member entry :params))

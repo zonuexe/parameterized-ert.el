@@ -29,6 +29,14 @@
 (require 'parameterized-ert)
 (require 'parameterized-ert-property)
 
+(ert-deftest test--product ()
+  (should (equal '((1 a x)) (parameterized-ert--product '(1) '(a) '(x))))
+  (should (equal '((1 a) (1 b) (2 a) (2 b)) (parameterized-ert--product '(1 2) '(a b))))
+  (should (equal '((1 a x) (1 a y) (1 a z) (1 b x) (1 b y) (1 b z) (1 c x) (1 c y) (1 c z)
+                   (2 a x) (2 a y) (2 a z) (2 b x) (2 b y) (2 b z) (2 c x) (2 c y) (2 c z)
+                   (3 a x) (3 a y) (3 a z) (3 b x) (3 b y) (3 b z) (3 c x) (3 c y) (3 c z))
+                 (parameterized-ert--product '(1 2 3) '(a b c) '(x y z)))))
+
 (ert-deftest test--build-label-format ()
   (should (string= "" (parameterized-ert--build-label-format '())))
   (should (string=
