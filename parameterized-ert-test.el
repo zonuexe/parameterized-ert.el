@@ -56,5 +56,25 @@
      (t
       (ert-fail (format "Unexpected macro expansion: %S" form))))))
 
+(ert-deftest test-parameterized-ert-provider-lazy ()
+  (let ((parameterized-ert--tests '())
+        (parameterized-ert--parameters '())
+        (counter 0))
+    (setf (alist-get 'lazy-test parameterized-ert--tests)
+          (list :args '(a b)
+                :label (parameterized-ert--build-label-format '(a b))))
+    (parameterized-ert-add-provider
+     'lazy-test
+     (lambda ()
+       (setq counter (1+ counter))
+       '((:a 1 :b 2))))
+    (should (eq 0 counter))
+    (should (equal '((":a 1 :b 2" 1 2))
+                   (parameterized-ert-get-parameters 'lazy-test)))
+    (should (eq 1 counter))
+    (should (equal '((":a 1 :b 2" 1 2))
+                   (parameterized-ert-get-parameters 'lazy-test)))
+    (should (eq 1 counter))))
+
 (provide 'parameterized-ert-test)
 ;;; parameterized-ert-test.el ends here

@@ -28,13 +28,13 @@
 (require 'parameterized-ert)
 
 ;; Register a test definition (normally done by the macro).
-(setq parameterized-ert--tests
-      '((test-add :label ":expected %S :a %S :b %S" :args (expected a b))))
+;; (setq parameterized-ert--tests
+;;       '((test-add :label ":expected %S :a %S :b %S" :args (expected a b))))
 
-(plist-get (alist-get 'test-add parameterized-ert--tests) :args)
+;; (plist-get (alist-get 'test-add parameterized-ert--tests) :args)
 
 ;; Register parameter sets (label + values).
-(setq parameterized-ert--parameters '((test-add (":expected 4 :a 2 :b 2" 4 2 2))))
+;; (setq parameterized-ert--parameters '((test-add (":expected 4 :a 2 :b 2" 4 2 2))))
 
 ;; Minimal parameterized test definition.
 (parameterized-ert-deftest test-add (expected a b)
@@ -47,11 +47,28 @@
 ;;            do (should (equal (list label expected)
 ;;                              (list label (+ a b))))))
 
+(defun example-add-provider ()
+  "Return parameter sets for `test-add'."
+  (cl-loop for a from 0 upto 2
+           append
+           (cl-loop for b from 0 upto 2
+                    collect (list :expected (+ a b) :a a :b b))))
+
+(defun example-add-provider-2 ()
+  "Return parameter sets for `test-add'."
+  (cl-loop for a from 5 upto 6
+           append
+           (cl-loop for b from 10 upto 11
+                    collect (list :expected (+ a b) :a a :b b))))
+
 ;; Provide parameters using keyword/value pairs.
-(parameterized-ert-provide 'test-add '((:expected 2 :a 1 :b 1)))
+(parameterized-ert-add-parameter 'test-add '(:expected 2 :a 1 :b 1))
+(parameterized-ert-add-parameters 'test-add '((:expected 3 :a 1 :b 2)))
+;; Register lazy parameter provider functions.
+(parameterized-ert-add-provider 'test-add #'example-add-provider)
+(parameterized-ert-add-providers 'test-add (list #'example-add-provider-2))
 
 ;; wrong data
 ;; (parameterized-ert-provide 'test-add '((:expected 4 :a 1 :b 1)))
-
 
 ;;; example.el ends here

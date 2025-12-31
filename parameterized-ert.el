@@ -36,6 +36,12 @@
 
 (defvar parameterized-ert--parameters '())
 
+(defun parameterized-ert--normalize-entry (entry)
+  "Normalize ENTRY into a plist with :params and :providers."
+  (if (and (listp entry) (plist-member entry :params))
+      entry
+    (list :params entry :providers nil)))
+
 (defun parameterized-ert--split-docstring-keys-body (docstring-keys-and-body)
   "Split DOCSTRING-KEYS-AND-BODY into docstring, keyword list, and body.
 Return a list of the form (DOCSTRING KEYS BODY), where DOCSTRING can be nil,
@@ -66,16 +72,13 @@ Accepts either keyword or symbol keys in PARAMETERS."
            for const = (intern (concat ":" (symbol-name name)))
            collect (or (plist-get parameters const) (plist-get parameters name))))
 
-(defun parameterized-ert-provide (name parameters)
-  "Register PARAMETERS for the parameterized test NAME.
-PARAMETERS is a list of parameter specs, each providing values for the
-argument list registered by `parameterized-ert-deftest'."
-  (cl-check-type name symbol)
-  (cl-check-type parameters list)
+(defun parameterized-ert--add-parameters (name parameters current)
+  "Return CURRENT with PARAMETERS for NAME merged in."
   (let* ((data (alist-get name parameterized-ert--tests))
          (arguments (plist-get data :args))
          (label-format (plist-get data :label))
-         (expected-length (length arguments)))
+         (expected-length (length arguments))
+         (result (or current '())))
     (cl-loop for param in parameters
              for param-length = (length param)
              do (let (label param-list)
@@ -89,14 +92,65 @@ argument list registered by `parameterized-ert-deftest'."
                         ((error "Unexpected parameter: %S" param)))
                   (unless label
                     (setq label (apply #'format label-format param-list)))
-                  (let ((current (alist-get name parameterized-ert--parameters)))
-                    (setf (alist-get label current) param-list)
-                    (setf (alist-get name parameterized-ert--parameters) current))))))
+                  (setf (alist-get label result) param-list)))
+    result))
+
+(defun parameterized-ert-add-parameter (name parameter)
+  "Register a single PARAMETER for the parameterized test NAME."
+  (parameterized-ert-add-parameters name (list parameter)))
+
+(defun parameterized-ert-add-parameters (name parameters)
+  "Register PARAMETERS for the parameterized test NAME."
+  (cl-check-type name symbol)
+  (cl-check-type parameters list)
+  (let* ((entry (parameterized-ert--normalize-entry
+                 (alist-get name parameterized-ert--parameters)))
+         (params (parameterized-ert--add-parameters
+                  name parameters (plist-get entry :params))))
+    (setf (alist-get name parameterized-ert--parameters)
+          (plist-put entry :params params))))
+
+(defun parameterized-ert-add-provider (name provider)
+  "Register a lazy PROVIDER function for the parameterized test NAME."
+  (parameterized-ert-add-providers name (list provider)))
+
+(defun parameterized-ert-add-providers (name providers)
+  "Register PROVIDERS as lazy parameter functions for NAME."
+  (cl-check-type name symbol)
+  (cl-check-type providers list)
+  (unless (cl-every #'functionp providers)
+    (error "Providers must be functions: %S" providers))
+  (let* ((entry (parameterized-ert--normalize-entry
+                 (alist-get name parameterized-ert--parameters)))
+         (current (plist-get entry :providers)))
+    (setf (alist-get name parameterized-ert--parameters)
+          (plist-put entry :providers (append current providers)))))
+
+(defun parameterized-ert-provide (name parameters)
+  "Register PARAMETERS for the parameterized test NAME.
+PARAMETERS can be a list of parameter specs or a provider function.
+A provider function is evaluated lazily when parameters are requested."
+  (cond
+   ((functionp parameters)
+    (parameterized-ert-add-provider name parameters))
+   ((listp parameters)
+    (parameterized-ert-add-parameters name parameters))
+   (t
+    (error "Unexpected parameters: %S" parameters))))
 
 (defun parameterized-ert-get-parameters (name)
   "Return the parameter list for NAME as (LABEL . VALUES) entries."
-  (let ((params (alist-get name parameterized-ert--parameters)))
-    (cl-loop for (label . values) in params
+  (let* ((entry (parameterized-ert--normalize-entry
+                 (alist-get name parameterized-ert--parameters)))
+         (providers (plist-get entry :providers))
+         (params (plist-get entry :params)))
+    (when providers
+      (setq params (parameterized-ert--add-parameters
+                    name (apply #'append (mapcar #'funcall providers)) params))
+      (setq entry (plist-put entry :params params))
+      (setq entry (plist-put entry :providers nil))
+      (setf (alist-get name parameterized-ert--parameters) entry))
+    (cl-loop for (label . values) in (or params '())
              collect (cons label values))))
 
 (cl-defmacro parameterized-ert-deftest (name args &body docstring-keys-and-body)
