@@ -51,6 +51,10 @@
                      (mapcar (lambda (sub-p) (cons item sub-p))
                              rest-product))
                    first-list)))))
+
+(defun parameterized-ert--zero-arity-function-p (function)
+  "Return non-nil if FUNCTION is a function that accepts no arguments."
+  (equal '(0 . 0) (func-arity function)))
 
 ;; Public helpers for test authors
 (defun parameterized-ert-map-product (fn &rest keyed-lists)
@@ -133,7 +137,9 @@ Function values receive a plist of the already-derived pairs."
    ((null value) nil)
    ((listp value) value)
    ((functionp value)
-    (parameterized-ert--provider-output-as-list (funcall value)))
+    (if (parameterized-ert--zero-arity-function-p value)
+        (parameterized-ert--provider-output-as-list (funcall value))
+      (parameterized-ert--generator-to-list value)))
    (t
     (parameterized-ert--generator-to-list value))))
 
