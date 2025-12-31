@@ -25,6 +25,7 @@
 ;;; Code:
 (require 'ert)
 (require 'cond-star)
+(require 'generator)
 (require 'parameterized-ert)
 
 (ert-deftest test--build-label-format ()
@@ -75,6 +76,21 @@
     (should (equal '((":a 1 :b 2" 1 2))
                    (parameterized-ert-get-parameters 'lazy-test)))
     (should (eq 1 counter))))
+
+(iter-defun parameterized-ert--test-provider-generator ()
+  (iter-yield '(:a 3 :b 4)))
+
+(ert-deftest test-parameterized-ert-provider-generator ()
+  (let ((parameterized-ert--tests '())
+        (parameterized-ert--parameters '()))
+    (setf (alist-get 'gen-test parameterized-ert--tests)
+          (list :args '(a b)
+                :label (parameterized-ert--build-label-format '(a b))))
+    (parameterized-ert-add-provider
+     'gen-test
+     #'parameterized-ert--test-provider-generator)
+    (should (equal '((":a 3 :b 4" 3 4))
+                   (parameterized-ert-get-parameters 'gen-test)))))
 
 (provide 'parameterized-ert-test)
 ;;; parameterized-ert-test.el ends here

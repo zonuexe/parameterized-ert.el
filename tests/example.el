@@ -26,6 +26,7 @@
 ;;; Code:
 
 (require 'parameterized-ert)
+(require 'generator)
 
 ;; Register a test definition (normally done by the macro).
 ;; (setq parameterized-ert--tests
@@ -54,12 +55,11 @@
            (cl-loop for b from 0 upto 2
                     collect (list :expected (+ a b) :a a :b b))))
 
-(defun example-add-provider-2 ()
-  "Return parameter sets for `test-add'."
+(iter-defun example-add-provider-2 ()
+  "Yield parameter sets for `test-add'."
   (cl-loop for a from 5 upto 6
-           append
-           (cl-loop for b from 10 upto 11
-                    collect (list :expected (+ a b) :a a :b b))))
+           do (cl-loop for b from 10 upto 11
+                       do (iter-yield (list :expected (+ a b) :a a :b b)))))
 
 ;; Provide parameters using keyword/value pairs.
 (parameterized-ert-add-parameter 'test-add '(:expected 2 :a 1 :b 1))

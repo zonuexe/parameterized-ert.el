@@ -29,6 +29,7 @@
 
 ;;; Code:
 (require 'ert)
+(require 'generator)
 (eval-when-compile
   (require 'cl-lib))
 
@@ -41,6 +42,27 @@
   (if (and (listp entry) (plist-member entry :params))
       entry
     (list :params entry :providers nil)))
+
+(defun parameterized-ert--generator-to-list (generator)
+  "Collect values from GENERATOR into a list."
+  (let (items)
+    (condition-case nil
+        (while t
+          (push (iter-next generator) items))
+      (iter-end-of-sequence nil))
+    (when (fboundp 'iter-close)
+      (iter-close generator))
+    (nreverse items)))
+
+(defun parameterized-ert--provider-output-as-list (value)
+  "Normalize provider output VALUE into a list."
+  (cond
+   ((null value) nil)
+   ((listp value) value)
+   ((functionp value)
+    (parameterized-ert--provider-output-as-list (funcall value)))
+   (t
+    (parameterized-ert--generator-to-list value))))
 
 (defun parameterized-ert--split-docstring-keys-body (docstring-keys-and-body)
   "Split DOCSTRING-KEYS-AND-BODY into docstring, keyword list, and body.
@@ -129,7 +151,8 @@ Accepts either keyword or symbol keys in PARAMETERS."
 (defun parameterized-ert-provide (name parameters)
   "Register PARAMETERS for the parameterized test NAME.
 PARAMETERS can be a list of parameter specs or a provider function.
-A provider function is evaluated lazily when parameters are requested."
+A provider function is evaluated lazily when parameters are requested.
+Provider functions may return lists or generator objects."
   (cond
    ((functionp parameters)
     (parameterized-ert-add-provider name parameters))
@@ -146,7 +169,13 @@ A provider function is evaluated lazily when parameters are requested."
          (params (plist-get entry :params)))
     (when providers
       (setq params (parameterized-ert--add-parameters
-                    name (apply #'append (mapcar #'funcall providers)) params))
+                    name
+                    (apply #'append
+                           (mapcar (lambda (provider)
+                                     (parameterized-ert--provider-output-as-list
+                                      (funcall provider)))
+                                   providers))
+                    params))
       (setq entry (plist-put entry :params params))
       (setq entry (plist-put entry :providers nil))
       (setf (alist-get name parameterized-ert--parameters) entry))
