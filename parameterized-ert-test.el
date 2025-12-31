@@ -139,10 +139,10 @@
                   (setf (alist-get 'test-add parameterized-ert--tests)
                         (list :args '(expected a b)
                               :label ":expected %S :a %S :b %S"))
-                  (parameterized-ert-add-parameters
+                  (parameterized-ert-set-parameters
                    'test-add
                    '((:expected 2 :a 1 :b 1)))
-                  (parameterized-ert-add-providers
+                  (parameterized-ert-set-providers
                    'test-add
                    (list (lambda () '((:expected 3 :a 1 :b 2)))))
                   (ert-deftest test-add ()

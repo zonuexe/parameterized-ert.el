@@ -96,10 +96,10 @@
 
 ;; Provide parameters using keyword/value pairs.
 (parameterized-ert-add-parameter 'test-add '(:expected 2 :a 1 :b 1))
-(parameterized-ert-add-parameters 'test-add '((:expected 3 :a 1 :b 2)))
+(parameterized-ert-set-parameters 'test-add '((:expected 3 :a 1 :b 2)))
 ;; Register lazy parameter provider functions.
 (parameterized-ert-add-provider 'test-add #'example-add-provider)
-(parameterized-ert-add-providers 'test-add (list #'example-add-provider-2))
+(parameterized-ert-set-providers 'test-add (list #'example-add-provider-2))
 
 ;; wrong data
 ;; (parameterized-ert-provide 'test-add '((:expected 4 :a 1 :b 1)))

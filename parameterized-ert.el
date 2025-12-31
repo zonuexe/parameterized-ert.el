@@ -197,11 +197,12 @@ Accepts either keyword or symbol keys in PARAMETERS."
     result))
 
 (defun parameterized-ert-add-parameter (name parameter)
-  "Register a single PARAMETER for the parameterized test NAME."
-  (parameterized-ert-add-parameters name (list parameter)))
+  "Add a single PARAMETER for the parameterized test NAME."
+  (parameterized-ert-set-parameters name (list parameter)))
 
-(defun parameterized-ert-add-parameters (name parameters)
-  "Register PARAMETERS for the parameterized test NAME."
+(defun parameterized-ert-set-parameters (name parameters)
+  "Set PARAMETERS for the parameterized test NAME.
+This replaces any previously registered parameters."
   (cl-check-type name symbol)
   (cl-check-type parameters list)
   (let* ((entry (parameterized-ert--normalize-entry
@@ -212,31 +213,31 @@ Accepts either keyword or symbol keys in PARAMETERS."
           (plist-put entry :params params))))
 
 (defun parameterized-ert-add-provider (name provider)
-  "Register a lazy PROVIDER function for the parameterized test NAME."
-  (parameterized-ert-add-providers name (list provider)))
+  "Add a single PROVIDER function for the parameterized test NAME."
+  (parameterized-ert-set-providers name (list provider)))
 
-(defun parameterized-ert-add-providers (name providers)
-  "Register PROVIDERS as lazy parameter functions for NAME."
+(defun parameterized-ert-set-providers (name providers)
+  "Set PROVIDERS as lazy parameter functions for NAME.
+This replaces any previously registered providers."
   (cl-check-type name symbol)
   (cl-check-type providers list)
   (unless (cl-every #'functionp providers)
     (error "Providers must be functions: %S" providers))
   (let* ((entry (parameterized-ert--normalize-entry
-                 (alist-get name parameterized-ert--parameters)))
-         (current (plist-get entry :providers)))
+                 (alist-get name parameterized-ert--parameters))))
     (setf (alist-get name parameterized-ert--parameters)
-          (plist-put entry :providers (append current providers)))))
+          (plist-put entry :providers providers))))
 
 (defun parameterized-ert-provide (name parameters)
   "Register PARAMETERS for the parameterized test NAME.
 PARAMETERS can be a list of parameter specs or a provider function.
 A provider function is evaluated lazily when parameters are requested.
 Provider functions may return lists or generator objects."
-  (cond
+   (cond
    ((functionp parameters)
     (parameterized-ert-add-provider name parameters))
    ((listp parameters)
-    (parameterized-ert-add-parameters name parameters))
+    (parameterized-ert-set-parameters name parameters))
    (t
     (error "Unexpected parameters: %S" parameters))))
 
@@ -299,9 +300,9 @@ It also supports :parameters and :providers to register inputs."
        (setf (alist-get ',name parameterized-ert--tests)
              (list :args ',args :label ,label-format))
        ,@(when parameters
-           `((parameterized-ert-add-parameters ',name ,parameters)))
+           `((parameterized-ert-set-parameters ',name ,parameters)))
        ,@(when providers
-           `((parameterized-ert-add-providers ',name ,providers)))
+           `((parameterized-ert-set-providers ',name ,providers)))
        (ert-deftest ,name ()
          ,@(when docstring (list docstring))
          ,@ert-keys
