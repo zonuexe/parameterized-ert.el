@@ -103,6 +103,17 @@
       (should (cl-typep (plist-get params :a) 'integer))
       (should (cl-typep (plist-get params :b) '(integer 0 1))))))
 
+(ert-deftest test-parameterized-ert-map-product ()
+  (should (equal
+           '((:v1 a :v2 x)
+             (:v1 a :v2 y)
+             (:v1 b :v2 x)
+             (:v1 b :v2 y))
+           (funcall
+            (parameterized-ert-map-product
+             (lambda (v1 v2) (list :v1 v1 :v2 v2))
+             :v1 '(a b) :v2 '(x y))))))
+
 (ert-deftest test-parameterized-ert-macro-parameters-and-providers ()
   (let ((parameterized-ert--tests '())
         (parameterized-ert--parameters '()))

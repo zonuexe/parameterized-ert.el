@@ -31,7 +31,8 @@
 (require 'ert)
 (require 'generator)
 (eval-when-compile
-  (require 'cl-lib))
+  (require 'cl-lib)
+  (require 'pcase))
 
 (defvar parameterized-ert--tests '())
 
@@ -50,6 +51,24 @@
                      (mapcar (lambda (sub-p) (cons item sub-p))
                              rest-product))
                    first-list)))))
+
+;; Public helpers for test authors
+(defun parameterized-ert-map-product (fn &rest keyed-lists)
+  "Return a provider that maps FN over the Cartesian product of KEYED-LISTS.
+KEYED-LISTS is a plist of keyword/value pairs, where each value is a list.
+The provider calls FN with positional arguments in the plist order."
+  (cl-check-type fn function)
+  (let* ((pairs (seq-partition keyed-lists 2))
+         (lists (mapcar (pcase-lambda (`(,key ,values))
+                          (unless (keywordp key)
+                            (error "Expected keyword key, got: %S" key))
+                          (cl-check-type values list)
+                          values)
+                        pairs)))
+    (lambda ()
+      (mapcar (lambda (values)
+                (apply fn values))
+              (apply #'parameterized-ert--product lists)))))
 
 ;;; Internal functions:
 (defun parameterized-ert--normalize-entry (entry)
