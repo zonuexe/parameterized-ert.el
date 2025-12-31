@@ -27,6 +27,7 @@
 (require 'cond-star)
 (require 'generator)
 (require 'parameterized-ert)
+(require 'parameterized-ert-property)
 
 (ert-deftest test--build-label-format ()
   (should (string= "" (parameterized-ert--build-label-format '())))
@@ -94,7 +95,7 @@
 
 (ert-deftest test-parameterized-ert-property-provider ()
   (let* ((provider (parameterized-ert-property
-                    (:a 'integer :b '(integer 0 1))
+                    '(:a 'integer :b '(integer 0 1))
                     :times 3 :seed 42))
          (sample-1 (funcall provider))
          (sample-2 (funcall provider)))
