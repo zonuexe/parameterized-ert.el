@@ -24,7 +24,6 @@
 
 ;;; Code:
 (require 'ert)
-(require 'cond-star)
 (require 'generator)
 (require 'parameterized-ert)
 (require 'parameterized-ert-property)
@@ -44,27 +43,19 @@
            (parameterized-ert--build-label-format '(a b)))))
 
 (ert-deftest test-parameterized-ert-macro ()
-  (let ((form (macroexpand
-               '(parameterized-ert-deftest test-add (expected a b)
-                  "This is a test for addition."
-                  (should (eq expected (+ a b)))))))
-    (cond*
-     ((match* (cons 'progn rest) form))
-     ((match* (list setf-form deftest) rest))
-     ((pcase* `(ert-deftest ,test-name () ,docstring . ,body) deftest)
-      (should (equal
-               '(setf (alist-get 'test-add parameterized-ert--tests)
-                      (list :args '(expected a b)
-                            :label ":expected %S :a %S :b %S"))
-               setf-form))
-      (should (eq 'test-add test-name))
-      (should (string= "This is a test for addition." docstring))
-      (should (equal
-               '((cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
-                          do (progn (should (eq expected (+ a b))))))
-               body)))
-     (t
-      (ert-fail (format "Unexpected macro expansion: %S" form))))))
+  (should (equal
+           '(progn
+              (setf (alist-get 'test-add parameterized-ert--tests)
+                    (list :args '(expected a b)
+                          :label ":expected %S :a %S :b %S"))
+              (ert-deftest test-add ()
+                "This is a test for addition."
+                (cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
+                         do (progn (should (eq expected (+ a b)))))))
+           (macroexpand
+            '(parameterized-ert-deftest test-add (expected a b)
+               "This is a test for addition."
+               (should (eq expected (+ a b))))))))
 
 (ert-deftest test-parameterized-ert-provider-lazy ()
   (let ((parameterized-ert--tests '())

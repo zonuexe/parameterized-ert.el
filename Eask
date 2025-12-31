@@ -12,5 +12,3 @@
 (source "gnu-devel")
 
 (depends-on "emacs" "30.1")
-(development
- (depends-on "cond-star"))
