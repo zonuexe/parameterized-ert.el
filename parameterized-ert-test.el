@@ -92,6 +92,17 @@
     (should (equal '((":a 3 :b 4" 3 4))
                    (parameterized-ert-get-parameters 'gen-test)))))
 
+(ert-deftest test-parameterized-ert-property-provider ()
+  (let* ((provider (parameterized-ert-property
+                    (:a 'integer :b '(integer 0 1))
+                    :times 3 :seed 42))
+         (sample-1 (funcall provider))
+         (sample-2 (funcall provider)))
+    (should (equal sample-1 sample-2))
+    (dolist (params sample-1)
+      (should (cl-typep (plist-get params :a) 'integer))
+      (should (cl-typep (plist-get params :b) '(integer 0 1))))))
+
 (ert-deftest test-parameterized-ert-macro-parameters-and-providers ()
   (let ((parameterized-ert--tests '())
         (parameterized-ert--parameters '()))

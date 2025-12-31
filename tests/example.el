@@ -46,6 +46,11 @@
                    (iter-lambda () (iter-yield (list :expected 10 :a 4 :b 6))))
   (should (eq expected (+ a b))))
 
+(parameterized-ert-deftest test-add-property (a b)
+  ""
+  :providers (list (parameterized-ert-property (:a 'integer :b 'integer) &times 100))
+  (should (eq (+ a b) (+ b a))))
+
 ;; Equivalent expanded ERT test.
 ;; (ert-deftest test-add ()
 ;;   (cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
