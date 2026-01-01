@@ -27,6 +27,7 @@ against `parameterized-ert-test.el` while updating the Makefile as needed.
 - Indentation: follow standard Emacs Lisp formatting (2 spaces).
 - Internal helpers use a double dash prefix: `parameterized-ert--...`.
 - Public APIs use the package prefix: `parameterized-ert-...`.
+- Use Emacs Lisp naming style (e.g., `keyword-to-symbol`, not `keyword->symbol`).
 - Keep file headers and `provide` forms consistent with Emacs conventions.
 
 ## Testing Guidelines
