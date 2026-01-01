@@ -192,7 +192,7 @@ one framework's naming and instead uses neutral terms like "parameters" and
 
 ## Design Decisions: Comparison with ert-parametrized.el
 
-I developed this package because I believe ERT needs a more idiomatic parameterization layer. While [svjson/ert-parametrized.el] is excellent, our design philosophies differ:
+After seeing the release of [svjson/ert-parametrized.el] and the [Reddit thread][ert-parametrized.el r/emacs], I was inspired to implement my own vision for ERT parameterization. I believe ERT benefits from a more idiomatic, keyword-driven layer. While the existing package is excellent, our design philosophies differ in ways that make a separate alternative worthwhile:
 
 | Feature      | ert-parametrized.el               | parameterized-ert (This Package)          |
 |--------------|-----------------------------------|-------------------------------------------|
@@ -285,6 +285,7 @@ I developed this package because I believe ERT needs a more idiomatic parameteri
 Ultimately, I believe a keyword-based API aligns more naturally with the existing `ert-deftest` than a separate tagged DSL, making it a better candidate for potential upstreaming.
 
 [svjson/ert-parametrized.el]: https://github.com/svjson/ert-parametrized.el
+[ert-parametrized.el r/emacs]: https://www.reddit.com/r/emacs/comments/1pfvj6y/ertparametrizedel_parametrized_test_macros_for_ert/
 
 ## Copyright
 
