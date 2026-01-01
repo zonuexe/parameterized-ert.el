@@ -103,6 +103,35 @@
       (should (cl-typep (plist-get params :a) 'integer))
       (should (cl-typep (plist-get params :b) '(integer 0 1))))))
 
+(ert-deftest test-parameterized-ert-property-types ()
+  (let* ((provider (parameterized-ert-property
+                    '(:s string :sym symbol)
+                    :times 2 :seed 7))
+         (sample (funcall provider)))
+    (dolist (params sample)
+      (should (cl-typep (plist-get params :s) 'string))
+      (should (cl-typep (plist-get params :sym) 'symbol)))))
+
+(ert-deftest test-parameterized-ert-quickcheck ()
+  (let ((parameterized-ert--tests '())
+        (parameterized-ert--parameters '()))
+    (let ((name (make-symbol "test-quickcheck")))
+      (eval
+       `(parameterized-ert-property-quickcheck #'identity (:argument integer)
+          :max-success 3 :seed 2 :name ,name))
+      (let ((result (ert-run-test (ert-get-test name))))
+        (should (ert-test-result-type-p result 'passed))))))
+
+(ert-deftest test-parameterized-ert-quickcheck-test-option ()
+  (let ((parameterized-ert--tests '())
+        (parameterized-ert--parameters '()))
+    (let ((name (make-symbol "test-quickcheck-eq")))
+      (eval
+       `(parameterized-ert-property-quickcheck #'identity (:argument integer)
+          :max-success 3 :seed 2 :name ,name :test #'eq))
+      (let ((result (ert-run-test (ert-get-test name))))
+        (should (ert-test-result-type-p result 'passed))))))
+
 (ert-deftest test-parameterized-ert-map-product ()
   (should (equal
            '((:v1 a :v2 x)

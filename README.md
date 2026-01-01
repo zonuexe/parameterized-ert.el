@@ -69,6 +69,46 @@ Example:
                        do (iter-yield (list :expected (+ a b) :a a :b b)))))
 ```
 
+## Property-Based Testing
+
+Property-based testing focuses on *properties* that should hold for many inputs,
+instead of enumerating fixed examples. In `parameterized-ert`, a QuickCheck-style
+helper generates inputs and runs the same test repeatedly.
+
+`parameterized-ert-property` creates a provider from a plist of `cl-typep` types.
+Use it when you want randomized inputs instead of fixed examples.
+
+```elisp
+(parameterized-ert-deftest test-add-property (a b)
+  :providers (list (parameterized-ert-property
+                    '(:a 'integer :b '(integer 0 10))
+                    :times 100 :seed 42))
+  (should (eq (+ a b) (+ b a))))
+```
+
+For a [QuickCheck]-style wrapper, use `parameterized-ert-property-quickcheck`,
+which defines a generated ERT test for a predicate function. If you omit
+`:test`, the check still verifies that the property runs without signaling
+an error for each generated input. When you provide `:test`, it validates the
+returned value. The `:test` function receives the computed result first,
+followed by the generated arguments.
+
+```elisp
+(parameterized-ert-property-quickcheck
+ #'identity '(:argument (or integer float string symbol))
+ :max-success 1000 :seed 123)
+
+(parameterized-ert-property-quickcheck
+ #'identity '(:argument integer)
+ :max-success 1000 :seed 123
+ :test #'eq)
+
+(parameterized-ert-property-quickcheck
+ #'reverse '(:argument (member nil (1 2 3) (a b c) (1) (x y)))
+ :max-success 20
+ :test (lambda (actual xs) (equal xs (reverse actual))))
+```
+
 ## Provider Helpers
 
 ### `parameterized-ert-map-zip`
@@ -182,3 +222,4 @@ This package is licensed under [GNU General Public License, version 3](https://w
 
 [ERT: Emacs Lisp Regression Testing]: https://www.gnu.org/software/emacs/manual/html_node/ert/
 [Generators]: https://www.gnu.org/software/emacs/manual/html_node/elisp/Generators.html
+[QuickCheck]: https://en.wikipedia.org/wiki/QuickCheck

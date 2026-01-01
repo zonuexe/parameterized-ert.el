@@ -28,6 +28,7 @@
 
 ;;; Code:
 (require 'cl-lib)
+(require 'parameterized-ert)
 
 (defvar parameterized-ert-property-default-times 100
   "Default number of samples for property-based providers.")
@@ -47,11 +48,29 @@
 (defvar parameterized-ert-property-max-retries 100
   "Maximum retries for generating a value that satisfies a type.")
 
+(defvar parameterized-ert-property-default-string-min-length 0
+  "Default minimum string length for generated strings.")
+
+(defvar parameterized-ert-property-default-string-max-length 8
+  "Default maximum string length for generated strings.")
+
+(defvar parameterized-ert-property-default-string-char-min 32
+  "Default minimum character code for generated strings.")
+
+(defvar parameterized-ert-property-default-string-char-max 126
+  "Default maximum character code for generated strings.")
+
 (defun parameterized-ert-property--normalize-type (type)
   "Normalize quoted TYPE into its literal value."
   (if (and (consp type) (eq (car type) 'quote))
       (cadr type)
     type))
+
+(defun parameterized-ert-property--normalize-spec (spec)
+  "Normalize quoted SPEC into its literal value."
+  (if (and (consp spec) (eq (car spec) 'quote))
+      (cadr spec)
+    spec))
 
 (defun parameterized-ert-property--range-bounds (low high min max)
   "Return inclusive LOW/HIGH bounds with defaults using MIN/MAX.
@@ -74,6 +93,19 @@ LOW and HIGH can be `*' or a list like (N) to represent exclusive bounds."
   "Return a random float between MIN and MAX using STATE."
   (+ min (* (cl-random 1.0 state) (- max min))))
 
+(defun parameterized-ert-property--random-string (state)
+  "Return a random string using STATE."
+  (let* ((length (parameterized-ert-property--random-integer
+                  state
+                  parameterized-ert-property-default-string-min-length
+                  parameterized-ert-property-default-string-max-length))
+         (chars (cl-loop repeat length
+                         collect (parameterized-ert-property--random-integer
+                                  state
+                                  parameterized-ert-property-default-string-char-min
+                                  parameterized-ert-property-default-string-char-max))))
+    (apply #'string chars)))
+
 (defun parameterized-ert-property--generator-for-type (type)
   "Return a generator function for TYPE."
   (setq type (parameterized-ert-property--normalize-type type))
@@ -90,6 +122,9 @@ LOW and HIGH can be `*' or a list like (N) to represent exclusive bounds."
               state
               parameterized-ert-property-default-integer-min
               parameterized-ert-property-default-integer-max)))
+    ('symbol
+     (lambda (state)
+       (make-symbol (parameterized-ert-property--random-string state))))
     ((or 'integer 'fixnum)
      (lambda (state)
        (parameterized-ert-property--random-integer
@@ -111,6 +146,9 @@ LOW and HIGH can be `*' or a list like (N) to represent exclusive bounds."
     ((or 'character 'string-char)
      (lambda (state)
        (parameterized-ert-property--random-integer state 0 255)))
+    ('string
+     (lambda (state)
+       (parameterized-ert-property--random-string state)))
     (`(integer ,low ,high)
      (pcase-let ((`(,lower ,upper)
                   (parameterized-ert-property--range-bounds
@@ -200,6 +238,56 @@ TIMES controls the sample count; SEED fixes the random stream."
   (let ((count (or times parameterized-ert-property-default-times)))
     (lambda ()
       (parameterized-ert-property--sample spec count seed))))
+
+(defun parameterized-ert-property--spec-keys (spec)
+  "Return the keyword keys from SPEC."
+  (let ((plist (parameterized-ert-property--normalize-spec spec)))
+    (unless (and (listp plist) (cl-evenp (length plist)))
+      (error "Property spec must be a plist: %S" spec))
+    (cl-loop for key in plist by #'cddr collect key)))
+
+(defun parameterized-ert-property--keyword-to-symbol (keyword)
+  "Return a symbol created from KEYWORD."
+  (unless (keywordp keyword)
+    (error "Expected keyword, got: %S" keyword))
+  (intern (substring (symbol-name keyword) 1)))
+
+(defun parameterized-ert-property--quickcheck-name (property name)
+  "Return a test NAME for PROPERTY.
+PROPERTY should be a function symbol or a `(function SYMBOL)' form."
+  (cond
+   (name name)
+   ((symbolp property)
+    (intern (format "test-quickcheck-%s" property)))
+   ((and (consp property)
+         (eq (car property) 'function)
+         (symbolp (cadr property)))
+    (intern (format "test-quickcheck-%s" (cadr property))))
+   (t
+    (error "Provide :name for quickcheck property %S" property))))
+
+(cl-defmacro parameterized-ert-property-quickcheck (property spec &key max-success seed name test)
+  "Define a generated ERT test for PROPERTY and SPEC.
+PROPERTY is a function or function symbol that should return non-nil.
+SPEC is a plist of keyword/type pairs for `parameterized-ert-property'.
+MAX-SUCCESS controls the number of samples, and SEED fixes the random stream.
+NAME overrides the generated test name.
+When TEST is non-nil, it is called as (TEST ACTUAL ARG1 ARG2 ...)."
+  (declare (indent 2))
+  (let* ((keys (parameterized-ert-property--spec-keys spec))
+         (args (mapcar #'parameterized-ert-property--keyword-to-symbol keys))
+         (test-name (parameterized-ert-property--quickcheck-name property name))
+         (property-form (if (symbolp property)
+                            `(function ,property)
+                          property)))
+    `(parameterized-ert-deftest ,test-name ,args
+       :providers (list (parameterized-ert-property ,spec
+                                                    :times ,max-success
+                                                    :seed ,seed))
+       (let ((result (apply ,property-form (list ,@args))))
+         (if ,test
+             (should (apply ,test (cons result (list ,@args))))
+           result)))))
 
 (provide 'parameterized-ert-property)
 ;;; parameterized-ert-property.el ends here

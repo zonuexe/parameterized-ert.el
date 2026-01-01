@@ -26,6 +26,7 @@
 ;;; Code:
 
 (require 'parameterized-ert)
+(require 'parameterized-ert-property)
 (require 'generator)
 
 ;; Register a test definition (normally done by the macro).
@@ -64,6 +65,7 @@
 
 (parameterized-ert-deftest test-twice (expected input)
   ""
+  :parameterize-continue-on-failure nil
   :providers (list (parameterized-ert-map-zip
                     :expected (lambda (params) (let ((input (plist-get params :input)))
                                                  (+ input input)))
@@ -74,6 +76,14 @@
   ""
   :providers (list (parameterized-ert-property '(:a 'integer :b 'integer) :times 100))
   (should (eq (+ a b) (+ b a))))
+
+(parameterized-ert-property-quickcheck #'identity '(:argument (or integer float string symbol))
+  :test #'eq
+  :max-success 10000)
+
+(parameterized-ert-property-quickcheck #'reverse '(:argument (member nil (1 2 3) (a b c) (1) (x y)))
+   :max-success 20
+   :test (lambda (actual xs) (equal xs (reverse actual))))
 
 ;; Equivalent expanded ERT test.
 ;; (ert-deftest test-add ()
