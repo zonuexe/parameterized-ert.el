@@ -2,11 +2,17 @@
 
 ## Overview
 
-This package adds a small parameterized layer on top of [ERT: Emacs Lisp
-Regression Testing]. It provides a wrapper macro and provider helpers so
-you can write concise multi-case tests.
+`parameterized-ert` adds a lightweight parameterization layer on top of [ERT: Emacs Lisp Regression Testing]. It provides a wrapper macro and provider helpers that allow you to write concise, data-driven tests without the boilerplate of manual loops.
 
-Without parameterization you often write boilerplate:
+**Key Features:**
+
+ * **Injected Arguments**: Parameters are passed directly to the test body.
+ * **Flexible Providers**: Support for list-based, generator-based, and property-based (randomized) data.
+ * **Runtime Resolution**: Parameters are resolved at runtime, keeping macro expansion small and enabling dynamic test generation.
+
+## Basic Usage
+
+Without parameterization, you often have to write boilerplate code to iterate over test cases:
 
 ```elisp
 (ert-deftest test-add-dolist ()
@@ -20,7 +26,7 @@ Without parameterization you often write boilerplate:
       (should (eq expected (+ a b))))))
 ```
 
-With `parameterized-ert-deftest` the arguments are injected directly:
+With `parameterized-ert-deftest`, arguments are injected directly into the test scope:
 
 ```elisp
 (parameterized-ert-deftest test-add (expected a b)
@@ -34,18 +40,13 @@ With `parameterized-ert-deftest` the arguments are injected directly:
 
 ## Defining Providers
 
-A **provider** is a function that returns either a list of parameter plists
-or a [generator][Generators].
+A **provider** is a function that returns a list of parameter plists or a [generator][Generators].
 
 Use these keywords inside `parameterized-ert-deftest`:
-- `:providers` takes a list of provider functions. Each entry can be a function
-  symbol, an inline `lambda`, or a provider helper call (which returns a lambda).
-- `:parameters` takes a list of parameter entries. You can pass plists
-  (`(:expected 2 :a 1 :b 1)`) or positional value lists (`(2 1 1)`); pick the
-  style that keeps the test readable.
-- `:parameterize-continue-on-failure` controls failure aggregation. When non-nil,
-  all cases run and failures are reported together; when nil, the first failure
-  stops the test.
+
+ * `:providers`: A list of provider functions (symbols, lambdas, or helper calls).
+ * `:parameters`: A static list of parameter entries (plists or positional lists).
+ * `:parameterize-continue-on-failure`: If non-nil, the test continues running subsequent cases even after a failure, reporting all failures at the end.
 
 Example:
 
@@ -71,12 +72,9 @@ Example:
 
 ## Property-Based Testing
 
-Property-based testing focuses on *properties* that should hold for many inputs,
-instead of enumerating fixed examples. In `parameterized-ert`, a QuickCheck-style
-helper generates inputs and runs the same test repeatedly.
+Property-based testing focuses on properties that should hold for many inputs instead of enumerating fixed examples. In `parameterized-ert`, a [QuickCheck]-style helper generates inputs and runs the same test repeatedly.
 
-`parameterized-ert-property` creates a provider from a plist of `cl-typep` types.
-Use it when you want randomized inputs instead of fixed examples.
+`parameterized-ert`-property creates a provider from a plist of `cl-typep` types.
 
 ```elisp
 (parameterized-ert-deftest test-add-property (a b)
@@ -86,12 +84,7 @@ Use it when you want randomized inputs instead of fixed examples.
   (should (eq (+ a b) (+ b a))))
 ```
 
-For a [QuickCheck]-style wrapper, use `parameterized-ert-property-quickcheck`,
-which defines a generated ERT test for a predicate function. If you omit
-`:test`, the check still verifies that the property runs without signaling
-an error for each generated input. When you provide `:test`, it validates the
-returned value. The `:test` function receives the computed result first,
-followed by the generated arguments.
+For a [QuickCheck]-style wrapper, use `parameterized-ert-property-quickcheck`, which defines an ERT test for a predicate function:
 
 ```elisp
 (parameterized-ert-property-quickcheck
@@ -112,9 +105,7 @@ followed by the generated arguments.
 
 ### `parameterized-ert-map-zip`
 
-Use `parameterized-ert-map-zip` to build a provider from plist keys.
-List values are zipped by index. Function values receive the current plist
-and return a single derived value.
+Builds a provider from plist keys where list values are zipped by index.
 
 - `list-or-function`: pass a list or a function
   - list values must have the same length across keys
@@ -144,8 +135,7 @@ This is a verbose version of `test-twice`; it runs the same six pairs.
 
 ### `parameterized-ert-map-product`
 
-`parameterized-ert-map-product` maps a function over the Cartesian product
-of lists and returns the produced parameter plists.
+Maps a function over the Cartesian product of lists.
 
 ```elisp
 (parameterized-ert-deftest test-cons-multi (expected i j k)
@@ -200,60 +190,34 @@ one framework's naming and instead uses neutral terms like "parameters" and
 
 - `test.each` / `describe.each`: use `:parameters` with plist rows or positional values.
 
-## Design Decisions
+## Design Decisions: Comparison with ert-parametrized.el
 
-When I started this package during winter break, I learned that
-[svjson/ert-parametrized.el] and the [Reddit thread][ert-parametrized.el r/emacs]
-had been published just a month earlier. I have long believed ERT needed
-parameterization, so I am grateful for that work. After reading its README,
-I realized many of its design choices differ from mine. Those differences are
-significant enough that a PR would not reconcile them, so I note them here.
+I developed this package because I believe ERT needs a more idiomatic parameterization layer. While [svjson/ert-parametrized.el] is excellent, our design philosophies differ:
 
-I also want to highlight a few strengths of `ert-parametrized.el`:
-- Each case becomes its own ERT test, which makes failures easy to spot.
-- Case names can map to test names, making targeted runs and filtering simple.
-- The DSL is explicit and consistent, which can help teams standardize style.
-- Data generation intent is visible at a glance (`:generator`, `:eval`), which
-  can be approachable for users coming from other xUnit frameworks.
+| Feature      | ert-parametrized.el               | parameterized-ert (This Package)          |
+|--------------|-----------------------------------|-------------------------------------------|
+| Architecture | Static (Macro-expansion time)     | Dynamic (Runtime looping)                 |
+| Granularity  | One case = One ERT test           | Many cases = One ERT test                 |
+| Data Source  | DSL-based (`:generator`, `:eval`) | Idiomatic Lisp (`:providers`, functions)" |
+| Flexibility  | Fixed at expansion time           | Resolved at runtime (Lazy/Generative)     |
+| API Style    | Nested Tag-based DSL              | Flat Keyword-based (matches ert-deftest)  |
 
-- Core model
-  - `ert-parametrized.el`: expands into many ERT tests at macroexpansion time;
-    each case becomes a separate test name.
-  - `parameterized-ert`: loops parameters inside a single ERT test; cases are
-    distinguished by labels.
-- Case representation
-  - `ert-parametrized.el`: tag-based DSL using `:fun`, `:eval`, `:quote`,
-    `:generator`, and related forms.
-  - `parameterized-ert`: plain Emacs Lisp plus `:parameters`, `:providers`,
-    and provider helpers.
-- Data generation
-  - `ert-parametrized.el`: `:generator` is `eval`ed at macroexpansion; Cartesian
-    matrices are built at expansion time.
-  - `parameterized-ert`: providers run at runtime; generators are lazy.
-- Test naming and identity
-  - `ert-parametrized.el`: sanitizes case names into individual test names.
-  - `parameterized-ert`: one test name; cases are labeled.
-- Extensibility
-  - `ert-parametrized.el`: explicit DSL where "case = test".
-  - `parameterized-ert`: enumerate `:parameters` and extend with `:providers`
-    plus helper functions.
-- Relationship between tests and parameters
-  - `ert-parametrized.el`: parameters are fixed at expansion time.
-  - `parameterized-ert`: parameters are resolved at runtime; property tests use
-    `seed` for reproducibility.
-- Runtime code footprint
-  - `ert-parametrized.el`: expands into many small `ert-deftest` forms, with no
-    shared runtime loop.
-  - `parameterized-ert`: emits a single test that loops at runtime, so the
-    macro expansion is smaller but the runtime loop is always present.
+### Strengths of ert-parametrized.el
 
-"Many specialized static tests" versus "one test that loops many parameters" is
-a trade-off. When running `make test` in a terminal, the difference is small,
-but keeping a single test makes it easier to run all parameterized cases from
-`M-x ert`.
+ * **Granular Reporting**: Each case is registered as a separate ERT test, making failures identifiable at the top-level list.
+ * **Native Filtering**: You can use ERT's built-in selector to run specific cases by name.
+ * **Explicit Intent**: The DSL's `:generator` and `:eval` tags clearly signal where data is coming from to users familiar with other xUnit frameworks.
 
-Personally, I find the DSL's evaluation model to be less idiomatic for Emacs
-Lisp, and the frequent `:eval`/`:quote` tags add visual noise.
+### Why `parameterized-ert`?
+
+"Many specialized static tests" versus "one test that loops many parameters" is a classic trade-off. While the former integrates deeply with ERT's UI, the latter—used by this package—offers several advantages for Emacs Lisp developers:
+
+ * **Less Visual Noise**: Avoids mandatory :eval or :quote tags inside the test definition. It’s "just Lisp."
+ * **Runtime Power**: Since providers are resolved at runtime, you can generate data based on the current environment or use lazy generators for massive datasets without bloating the .elc file.
+ * **UI Cleanliness** : Keeping a single test name prevents the ERT results buffer from being overwhelmed when running hundreds of generated cases (e.g., in Property-Based Testing).
+
+> [!NOTE]
+> By default, `parameterized-ert` continues running all cases even if some fail (equivalent to `:parameterize-continue-on-failure t`). This ensures you get a complete report of all failing parameters in a single test run, rather than stopping at the first error.
 
 ```elisp
 ;; Prior art
@@ -290,12 +254,7 @@ Lisp, and the frequent `:eval`/`:quote` tags add visual noise.
 
 </details>
 
-This may be called [TMTOWTDI][] ("there's more than one way to do it"), but the
-point is not a DSL: it is just Emacs Lisp. Keeping the style consistent is up
-to the test author.
-
-This package does not have a dedicated "matrix" syntax, but the combination of
-`:providers` and helper functions covers that use case.
+`parameterized-ert` does not use a specialized DSL; it is just Emacs Lisp. While it lacks a dedicated "matrix" syntax, you can achieve the same results using helper functions or QuickCheck-style sampling for a more modern approach.
 
 ``` elisp
 ;; Prior art
@@ -323,14 +282,9 @@ This package does not have a dedicated "matrix" syntax, but the combination of
   :test (lambda (actual &rest _) (cl-evenp actual)))
 ```
 
-Finally, if parameterized tests are ever discussed for upstream ERT, I believe
-an API based on argument lists and `:keyword` options aligns more naturally with
-`ert-deftest` than a separate tagged DSL.
+Ultimately, I believe a keyword-based API aligns more naturally with the existing `ert-deftest` than a separate tagged DSL, making it a better candidate for potential upstreaming.
 
-[TMTOWTDI]: https://en.wiktionary.org/wiki/TMTOWTDI
 [svjson/ert-parametrized.el]: https://github.com/svjson/ert-parametrized.el
-[ert-parametrized.el r/emacs]: https://www.reddit.com/r/emacs/comments/1pfvj6y/ertparametrizedel_parametrized_test_macros_for_ert/
-
 
 ## Copyright
 
