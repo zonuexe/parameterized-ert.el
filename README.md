@@ -200,6 +200,138 @@ one framework's naming and instead uses neutral terms like "parameters" and
 
 - `test.each` / `describe.each`: use `:parameters` with plist rows or positional values.
 
+## Design Decisions
+
+When I started this package during winter break, I learned that
+[svjson/ert-parametrized.el] and the [Reddit thread][ert-parametrized.el r/emacs]
+had been published just a month earlier. I have long believed ERT needed
+parameterization, so I am grateful for that work. After reading its README,
+I realized many of its design choices differ from mine. Those differences are
+significant enough that a PR would not reconcile them, so I note them here.
+
+I also want to highlight a few strengths of `ert-parametrized.el`:
+- Each case becomes its own ERT test, which makes failures easy to spot.
+- Case names can map to test names, making targeted runs and filtering simple.
+- The DSL is explicit and consistent, which can help teams standardize style.
+- Data generation intent is visible at a glance (`:generator`, `:eval`), which
+  can be approachable for users coming from other xUnit frameworks.
+
+- Core model
+  - `ert-parametrized.el`: expands into many ERT tests at macroexpansion time;
+    each case becomes a separate test name.
+  - `parameterized-ert`: loops parameters inside a single ERT test; cases are
+    distinguished by labels.
+- Case representation
+  - `ert-parametrized.el`: tag-based DSL using `:fun`, `:eval`, `:quote`,
+    `:generator`, and related forms.
+  - `parameterized-ert`: plain Emacs Lisp plus `:parameters`, `:providers`,
+    and provider helpers.
+- Data generation
+  - `ert-parametrized.el`: `:generator` is `eval`ed at macroexpansion; Cartesian
+    matrices are built at expansion time.
+  - `parameterized-ert`: providers run at runtime; generators are lazy.
+- Test naming and identity
+  - `ert-parametrized.el`: sanitizes case names into individual test names.
+  - `parameterized-ert`: one test name; cases are labeled.
+- Extensibility
+  - `ert-parametrized.el`: explicit DSL where "case = test".
+  - `parameterized-ert`: enumerate `:parameters` and extend with `:providers`
+    plus helper functions.
+- Relationship between tests and parameters
+  - `ert-parametrized.el`: parameters are fixed at expansion time.
+  - `parameterized-ert`: parameters are resolved at runtime; property tests use
+    `seed` for reproducibility.
+- Runtime code footprint
+  - `ert-parametrized.el`: expands into many small `ert-deftest` forms, with no
+    shared runtime loop.
+  - `parameterized-ert`: emits a single test that loops at runtime, so the
+    macro expansion is smaller but the runtime loop is always present.
+
+"Many specialized static tests" versus "one test that loops many parameters" is
+a trade-off. When running `make test` in a terminal, the difference is small,
+but keeping a single test makes it easier to run all parameterized cases from
+`M-x ert`.
+
+Personally, I find the DSL's evaluation model to be less idiomatic for Emacs
+Lisp, and the frequent `:eval`/`:quote` tags add visual noise.
+
+```elisp
+;; Prior art
+(ert-parametrized-deftest generator-example (input expected)
+    (("%d-multiplied-by-2-equals-%d"
+      (:generator (:eval (number-sequence 0 10)))
+      (:generator (:eval '(0 2 4 6 8 10 12 14 16 18 20)))))
+  (should (equal (* input 2) expected)))
+
+;; This package
+(parameterized-ert-deftest providers-map-zip-example (input expected)
+  ;; Just zipping two lists.
+  :providers (list (parameterized-ert-map-zip
+                    :input (number-sequence 0 10)
+                    :expected '(0 2 4 6 8 10 12 14 16 18 20)))
+  (should (equal (* input 2) expected)))
+```
+
+<details><summary>More options</summary>
+
+``` elisp
+(parameterized-ert-deftest parameters-values-example (input expected)
+  ;; Plain positional values.
+  :parameters '((0 0) (1 2) (2 4) (3 6) (4 8) (5 10)
+                (6 12) (7 14) (8 16) (9 18) (10 20))
+  (should (equal (* input 2) expected)))
+
+(parameterized-ert-deftest parameters-mapcar-example (input expected)
+  ;; Just mapping a function.
+  :parameters (mapcar (lambda (n) (list :input n :expected (+ n n)))
+                      (number-sequence 0 10))
+  (should (equal (* input 2) expected)))
+```
+
+</details>
+
+This may be called [TMTOWTDI][] ("there's more than one way to do it"), but the
+point is not a DSL: it is just Emacs Lisp. Keeping the style consistent is up
+to the test author.
+
+This package does not have a dedicated "matrix" syntax, but the combination of
+`:providers` and helper functions covers that use case.
+
+``` elisp
+;; Prior art
+(ert-parametrized-deftest-matrix test-matrix-with-generators--produces-even-numbers
+    (test-number multiplier)
+    ((("num-%s"
+       (:generator (:eval (number-sequence 1 5)))))
+     (("multiplied-by-%s"
+       (:generator (:eval (number-sequence 2 10 2))))))
+  (should (cl-evenp (* test-number multiplier))))
+
+;; This package
+(parameterized-ert-deftest test-matrix-with-map-product (test-number multiplier)
+  :providers (list (parameterized-ert-map-product
+                    #'list
+                    :test-number (number-sequence 1 5)
+                    :multiplier (number-sequence 2 10 2)))
+  (should (cl-evenp (* test-number multiplier))))
+
+;; Different behavior, but QuickCheck-style sampling also works.
+(parameterized-ert-property-quickcheck
+    (lambda (test-number multiplier) (* test-number multiplier))
+    '(:test-number (integer 1 5) :multiplier (member 2 4 6 8 10))
+  :max-success 100
+  :test (lambda (actual &rest _) (cl-evenp actual)))
+```
+
+Finally, if parameterized tests are ever discussed for upstream ERT, I believe
+an API based on argument lists and `:keyword` options aligns more naturally with
+`ert-deftest` than a separate tagged DSL.
+
+[TMTOWTDI]: https://en.wiktionary.org/wiki/TMTOWTDI
+[svjson/ert-parametrized.el]: https://github.com/svjson/ert-parametrized.el
+[ert-parametrized.el r/emacs]: https://www.reddit.com/r/emacs/comments/1pfvj6y/ertparametrizedel_parametrized_test_macros_for_ert/
+
+
 ## Copyright
 
 This package is licensed under [GNU General Public License, version 3](https://www.gnu.org/licenses/gpl-3.0).
