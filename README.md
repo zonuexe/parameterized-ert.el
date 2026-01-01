@@ -119,6 +119,45 @@ of lists and returns the produced parameter plists.
 > [!WARNING]
 > Large input lists can create a combinatorial explosion.
 
+## Terminology for xUnit Users
+
+If you are used to other xUnit-style frameworks:
+- **Test case**: `ert-deftest` / `parameterized-ert-deftest`.
+- **Parameterized test / Theory**: `parameterized-ert-deftest` with `:parameters` or `:providers`.
+- **Data provider**: a provider function passed via `:providers`.
+- **Test data rows**: parameter plists (or positional lists) supplied by a provider.
+
+Terminology differs across frameworks. `parameterized-ert` avoids copying any
+one framework's naming and instead uses neutral terms like "parameters" and
+"providers" to keep the API clear and consistent.
+
+### For JUnit Users
+
+- `@ValueSource`: use `:parameters` with positional values (e.g., `(1 2 3)`).
+- `@MethodSource`: use `:providers` with a function symbol or lambda.
+- `@CsvSource`/`@CsvFileSource`: use plist rows in `:parameters` or `parameterized-ert-map-zip`.
+
+### For PHPUnit Users
+
+- `#[DataProvider]` / `@dataProvider`: use `:providers` with a function symbol or lambda.
+- `#[TestWith]` / `@testWith`: use `:parameters` with plist rows or positional values.
+
+### For NUnit Users
+
+- `[TestCase]`: use `:parameters` with plist rows or positional values.
+- `[TestCaseSource]`: use `:providers` with a function symbol or lambda.
+- `[Values]` / `[ValueSource]`: use `:parameters` with positional values.
+- `[Combinatorial]`: use `parameterized-ert-map-product`.
+
+### For pytest Users
+
+- `@pytest.mark.parametrize`: use `:parameters` with plist rows or positional values.
+- Indirect parametrization or fixtures: use `:providers` with a function symbol or lambda.
+
+### For Jest Users
+
+- `test.each` / `describe.each`: use `:parameters` with plist rows or positional values.
+
 ## Copyright
 
 This package is licensed under [GNU General Public License, version 3](https://www.gnu.org/licenses/gpl-3.0).
