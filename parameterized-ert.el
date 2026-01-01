@@ -74,39 +74,44 @@ The provider calls FN with positional arguments in the plist order."
                 (apply fn values))
               (apply #'parameterized-ert--product lists)))))
 
-(defun parameterized-ert-map-derive (&rest keyed-values)
-  "Return a provider that derives keys from earlier values.
+(defun parameterized-ert-map-zip (&rest keyed-values)
+  "Return a provider that zips values by index.
 KEYED-VALUES is a plist of keyword/value pairs.  Values are lists or functions.
-Function values receive a plist of the already-derived pairs."
+List values are zipped by index; function values receive the current plist."
   (let ((pairs (seq-partition keyed-values 2)))
     (lambda ()
-      (let ((base-pairs '())
+      (let ((list-pairs '())
             (derived-pairs '())
-            (keys (mapcar #'car pairs)))
+            (keys (mapcar #'car pairs))
+            (expected-length nil))
         (dolist (pair pairs)
           (pcase-let ((`(,key ,value) pair))
             (unless (keywordp key)
               (error "Expected keyword key, got: %S" key))
             (if (functionp value)
                 (push pair derived-pairs)
-              (push pair base-pairs))))
-        (setq base-pairs (nreverse base-pairs))
+              (progn
+                (cl-check-type value list)
+                (push pair list-pairs)
+                (let ((len (length value)))
+                  (if (null expected-length)
+                      (setq expected-length len)
+                    (unless (eq expected-length len)
+                      (error "Mismatched list length for %S" key))))))))
+        (setq list-pairs (nreverse list-pairs))
         (setq derived-pairs (nreverse derived-pairs))
-        (let ((results (list nil)))
-          (dolist (pair base-pairs)
-            (pcase-let ((`(,key ,values) pair))
-              (cl-check-type values list)
-              (setq results
-                    (cl-mapcan (lambda (partial)
-                                 (mapcar (lambda (item)
-                                           (plist-put (copy-sequence partial) key item))
-                                         values))
-                               results))))
+        (let ((results
+               (cl-loop for index from 0 below (or expected-length 0)
+                        collect (let ((plist nil))
+                                  (dolist (pair list-pairs)
+                                    (pcase-let ((`(,key ,values) pair))
+                                      (setq plist (plist-put plist key (nth index values)))))
+                                  plist))))
           (dolist (pair derived-pairs)
             (pcase-let ((`(,key ,fn) pair))
               (setq results
-                    (mapcar (lambda (partial)
-                              (plist-put partial key (funcall fn partial)))
+                    (mapcar (lambda (plist)
+                              (plist-put plist key (funcall fn plist)))
                             results))))
           (mapcar (lambda (plist)
                     (cl-loop for key in keys

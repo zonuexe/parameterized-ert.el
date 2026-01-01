@@ -64,7 +64,7 @@
 
 (parameterized-ert-deftest test-twice (expected input)
   ""
-  :providers (list (parameterized-ert-map-derive
+  :providers (list (parameterized-ert-map-zip
                     :expected (lambda (params) (let ((input (plist-get params :input)))
                                                  (+ input input)))
                     :input (number-sequence 0 5)))
@@ -72,7 +72,7 @@
 
 (parameterized-ert-deftest test-add-property (a b)
   ""
-  :providers (list (parameterized-ert-property (:a 'integer :b 'integer) &times 100))
+  :providers (list (parameterized-ert-property '(:a 'integer :b 'integer) :times 100))
   (should (eq (+ a b) (+ b a))))
 
 ;; Equivalent expanded ERT test.
