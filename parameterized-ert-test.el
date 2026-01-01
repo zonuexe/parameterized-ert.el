@@ -43,19 +43,19 @@
            (parameterized-ert--build-label-format '(a b)))))
 
 (ert-deftest test-parameterized-ert-macro ()
-  (should (equal
-           '(progn
-              (setf (alist-get 'test-add parameterized-ert--tests)
-                    (list :args '(expected a b)
-                          :label ":expected %S :a %S :b %S"))
-              (ert-deftest test-add ()
-                "This is a test for addition."
-                (cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
-                         do (progn (should (eq expected (+ a b)))))))
-           (macroexpand
-            '(parameterized-ert-deftest test-add (expected a b)
-               "This is a test for addition."
-               (should (eq expected (+ a b))))))))
+  (let ((parameterized-ert--tests '())
+        (parameterized-ert--parameters '()))
+    (eval
+     (let ((name (make-symbol "test-add")))
+       `(parameterized-ert-deftest ,name (expected a b)
+          "This is a test for addition."
+          (should (eq expected (+ a b))))))
+    (let ((name (caar parameterized-ert--tests)))
+      (should (equal
+               (list :args '(expected a b)
+                     :label ":expected %S :a %S :b %S")
+               (alist-get name parameterized-ert--tests)))
+      (should (ert-get-test name)))))
 
 (ert-deftest test-parameterized-ert-provider-lazy ()
   (let ((parameterized-ert--tests '())
@@ -138,28 +138,37 @@
 (ert-deftest test-parameterized-ert-macro-parameters-and-providers ()
   (let ((parameterized-ert--tests '())
         (parameterized-ert--parameters '()))
-    (let ((form (macroexpand
-                 '(parameterized-ert-deftest test-add (expected a b)
-                    ""
-                    :parameters '((:expected 2 :a 1 :b 1))
-                    :providers (list (lambda () '((:expected 3 :a 1 :b 2))))
-                    (should (eq expected (+ a b)))))))
+    (eval
+     (let ((name (make-symbol "test-add")))
+       `(parameterized-ert-deftest ,name (expected a b)
+          ""
+          :parameters '((:expected 2 :a 1 :b 1))
+          :providers (list (lambda () '((:expected 3 :a 1 :b 2))))
+          (should (eq expected (+ a b))))))
+    (let* ((name (caar parameterized-ert--parameters))
+           (entry (alist-get name parameterized-ert--parameters)))
+      (should (= 1 (length (plist-get entry :providers))))
       (should (equal
-               '(progn
-                  (setf (alist-get 'test-add parameterized-ert--tests)
-                        (list :args '(expected a b)
-                              :label ":expected %S :a %S :b %S"))
-                  (parameterized-ert-set-parameters
-                   'test-add
-                   '((:expected 2 :a 1 :b 1)))
-                  (parameterized-ert-set-providers
-                   'test-add
-                   (list (lambda () '((:expected 3 :a 1 :b 2)))))
-                  (ert-deftest test-add ()
-                    ""
-                    (cl-loop for (label expected a b) in (parameterized-ert-get-parameters 'test-add)
-                             do (progn (should (eq expected (+ a b)))))))
-               form)))))
+               '((":expected 3 :a 1 :b 2" 3 1 2)
+                 (":expected 2 :a 1 :b 1" 2 1 1))
+               (parameterized-ert-get-parameters name))))))
 
+(ert-deftest test-parameterized-ert-continue-on-failure ()
+  (let ((parameterized-ert--tests '())
+        (parameterized-ert--parameters '())
+        (calls '())
+        failure-message)
+    (parameterized-ert-deftest test-continue (value)
+      ""
+      :parameters '((:value 1) (:value 2) (:value 3))
+      (push value calls)
+      (should (not (eq value 2))))
+    (let ((result (ert-run-test (ert-get-test 'test-continue))))
+      (should (ert-test-result-with-condition-p result))
+      (setq failure-message
+            (error-message-string
+             (ert-test-result-with-condition-condition result))))
+    (should (equal '(1 2 3) calls))
+    (should (string-match-p ":value 2" failure-message))))
 (provide 'parameterized-ert-test)
 ;;; parameterized-ert-test.el ends here

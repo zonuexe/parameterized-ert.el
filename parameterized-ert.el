@@ -271,7 +271,8 @@ Provider functions may return lists or generator objects."
   "Define a parameterized ERT test NAME with ARGS.
 DOCSTRING-KEYS-AND-BODY accepts the same format as `ert-deftest', with an
 optional :label keyword to override the default label format.
-It also supports :parameters and :providers to register inputs."
+It also supports :parameters and :providers to register inputs.
+Use :parameterize-continue-on-failure to control failure aggregation."
   (declare (debug (&define [&name "test@p11d" symbolp]
 			   sexp [&optional stringp]
 			   [&rest keywordp sexp] def-body))
@@ -286,6 +287,7 @@ It also supports :parameters and :providers to register inputs."
          (label-format nil)
          (parameters nil)
          (providers nil)
+         (continue-on-failure t)
          (ert-keys '()))
     (while keys
       (let ((key (pop keys))
@@ -297,6 +299,8 @@ It also supports :parameters and :providers to register inputs."
             (setq parameters value))
            ((eq key :providers)
             (setq providers value))
+           ((eq key :parameterize-continue-on-failure)
+            (setq continue-on-failure value))
            (t
             (setq ert-keys (append ert-keys (list key value))))))))
     (unless label-format
@@ -311,8 +315,23 @@ It also supports :parameters and :providers to register inputs."
        (ert-deftest ,name ()
          ,@(when docstring (list docstring))
          ,@ert-keys
-         (cl-loop for (label ,@args) in (parameterized-ert-get-parameters ',name)
-                  do (progn ,@body))))))
+         (if ,continue-on-failure
+             (let ((failures '()))
+               (cl-loop for (label ,@args) in (parameterized-ert-get-parameters ',name)
+                        do (condition-case err
+                               (progn ,@body)
+                             (ert-test-failed
+                              (push (cons label (cdr err)) failures))))
+               (when failures
+                 (ert-fail
+                  (if (eq 1 (length failures))
+                      (car failures)
+                    (mapcar (lambda (failure)
+                              (message "car: %S cdr: %S" (car failure) (cdr failure))
+                              (format "%s -> %S" (car failure) (cdr failure)))
+                            (nreverse failures))))))
+           (cl-loop for (label ,@args) in (parameterized-ert-get-parameters ',name)
+                    do (progn ,@body)))))))
 
 (provide 'parameterized-ert)
 ;;; parameterized-ert.el ends here

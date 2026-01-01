@@ -43,6 +43,9 @@ Use these keywords inside `parameterized-ert-deftest`:
 - `:parameters` takes a list of parameter entries. You can pass plists
   (`(:expected 2 :a 1 :b 1)`) or positional value lists (`(2 1 1)`); pick the
   style that keeps the test readable.
+- `:parameterize-continue-on-failure` controls failure aggregation. When non-nil,
+  all cases run and failures are reported together; when nil, the first failure
+  stops the test.
 
 Example:
 
