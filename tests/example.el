@@ -82,7 +82,6 @@
   :max-success 10000)
 
 (parameterized-ert-property-quickcheck #'reverse '(:argument (member nil (1 2 3) (a b c) (1) (x y)))
-   :max-success 20
    :test (lambda (actual xs) (equal xs (reverse actual))))
 
 ;; Equivalent expanded ERT test.
