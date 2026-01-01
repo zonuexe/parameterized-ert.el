@@ -273,7 +273,7 @@ DOCSTRING-KEYS-AND-BODY accepts the same format as `ert-deftest', with an
 optional :label keyword to override the default label format.
 It also supports :parameters and :providers to register inputs.
 Use :parameterize-continue-on-failure to control failure aggregation."
-  (declare (debug (&define [&name "test@p11d" symbolp]
+  (declare (debug (&define [&name "test@" symbolp]
 			   sexp [&optional stringp]
 			   [&rest keywordp sexp] def-body))
            (doc-string 3)
